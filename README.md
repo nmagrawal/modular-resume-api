@@ -89,8 +89,9 @@ Interactive docs: http://127.0.0.1:8000/docs
 |---|---|---|
 | `RESUME_BANK_PATH` | Path to your modular resume bank markdown file | `example-resume-bank.md` in the project root — a fictional worked example, not a real resume; see below |
 | `RESUME_CONTACT_NAME`, `_LOCATION`, `_EMAIL`, `_PHONE`, `_LINKEDIN`, `_GITHUB`, `_SITE` | Header contact line — this isn't bank *content* (see BANK_FORMAT.md), it's per-deployer config | `[[PLACEHOLDER]]` — visibly unset rather than guessed; override per-request via `contact` instead if you'd rather not set env vars |
-| `LLM_PROVIDER`, `LLM_MODEL`, `LLM_BASE_URL`, `LLM_API_KEY` | Chat model for `POST /generate-resume/ai` (see [Provider setup](#provider-setup)) | auto-detected from `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GROQ_API_KEY` / etc. if set; otherwise unconfigured (503) |
+| `LLM_PROVIDER`, `LLM_MODEL`, `LLM_BASE_URL`, `LLM_API_KEY` | Chat model for `POST /generate-resume/ai` and (if enabled) `LLM_BULLET_SELECTION` (see [Provider setup](#provider-setup)) | auto-detected from `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GROQ_API_KEY` / etc. if set; otherwise unconfigured (503) |
 | `EMBEDDINGS_PROVIDER`, `EMBEDDINGS_MODEL`, `EMBEDDINGS_BASE_URL` | Enables semantic search for bullet/project relevance (see [Provider setup](#provider-setup)) | unset — keyword overlap is used |
+| `LLM_BULLET_SELECTION` | Uses the LLM_PROVIDER chat model to pick which bullets fill a slot when a role preset offers more candidates than the fixed shape uses (see below) | unset/`false` — `/generate-resume` makes zero network calls regardless of what `LLM_PROVIDER` is set to, unless this is explicitly `true` |
 
 Put these in a `.env` file (see `.env.example`) or export them directly.
 
@@ -173,6 +174,51 @@ scored 0.40 semantic similarity against a bullet using different wording for
 the same idea (LangGraph/MCP/human-in-the-loop), correctly well above an
 unrelated bullet's 0.16 — the case keyword-overlap scoring structurally
 can't handle.
+
+### LLM-assisted bullet selection
+
+Some role presets offer more candidate bullets than the fixed shape uses —
+either because a primary list already has 4, or because BANK_FORMAT.md's
+`(+X as a fourth)` / `(+X if a fourth fits)` bonus grammar names an explicit
+extra option. **Until this was added, that bonus was parsed and then
+silently ignored** — the assembler always fell back to trimming by
+relevance score among the base candidates, never actually considering the
+bonus. Two fixes landed together:
+
+1. The bonus candidate is now always a real part of the pool (works with
+   plain keyword/semantic scoring — no LLM required).
+2. Optionally, set `LLM_BULLET_SELECTION=true` to have the `LLM_PROVIDER`
+   chat model do that specific pick instead of the relevance scorer, when
+   there's an actual choice to make (i.e. more candidates than slots).
+
+```bash
+export LLM_PROVIDER=ollama
+export LLM_MODEL=qwen3:8b
+export LLM_BULLET_SELECTION=true
+```
+
+This uses `crewai.LLM.call(..., response_model=...)` for structured output
+(a Pydantic model, not free text) — verified to return clean, parseable
+picks even from a local 3B model, unlike the free-text summary layer. The
+result is still validated in code before being trusted (right count, IDs
+actually in the candidate pool); an untrustworthy or failed call falls back
+to relevance scoring, the same defense-in-depth pattern as the summary
+layer's fact-checking guard.
+
+**Verified against a real bonus case**: a preset offering `OG20·OG22·OG21`
+plus a documented bonus `OG9`, against a JD emphasizing exactly what `OG9`
+covers (golden datasets, hard negatives, abstention, prompt-injection
+resistance) that the primary three don't. Relevance scoring alone already
+correctly swapped `OG9` in for `OG20` once the bonus was in the pool; with
+`LLM_BULLET_SELECTION=true` on `qwen3:8b`, the model also picked `OG9`,
+landing on a slightly different (still defensible) second choice than the
+scorer for the remaining slot — the kind of judgment call where reasonable
+scoring methods can differ.
+
+**Note**: `/generate-resume` makes zero network calls unless
+`LLM_BULLET_SELECTION=true` is explicitly set — just having `LLM_PROVIDER`
+configured for the separate `/generate-resume/ai` summary layer does not
+turn this on.
 
 ## API
 

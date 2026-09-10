@@ -19,6 +19,7 @@ import os
 import re
 from dataclasses import dataclass, field
 
+from app import llm_selection
 from app.parser import Bullet, Project, ResumeBank
 from app.role_matcher import RoleScore, resolve_role
 from app.scoring import relevance_score
@@ -76,6 +77,7 @@ def select_bullets(
     target_count: int,
     bullet_texts: dict[str, str],
     jd_lower: str,
+    jd_text: str | None = None,
 ) -> list[str]:
     def score(bid: str) -> float:
         return relevance_score(bullet_texts.get(bid, ""), jd_lower)
@@ -92,12 +94,25 @@ def select_bullets(
         if score(expr.alt_single) > score(last_id):
             candidates[-1] = expr.alt_single
 
-    # Size to target_count on relevance BEFORE applying the forced swap, so the
+    # A documented bonus ("+X as a fourth" / "+X if a fourth fits") is a real
+    # candidate, not just a note — put it in the pool so it can actually be
+    # picked, instead of being parsed and then silently ignored.
+    if expr.bonus_id and expr.bonus_id not in candidates:
+        candidates.append(expr.bonus_id)
+
+    # Size to target_count BEFORE applying the forced swap below, so the
     # swap-in bullet can't be scored back out — "swap X in when Y appears in
     # the JD" is a hard rule, not a vote among candidates.
     if len(candidates) > target_count:
-        candidates.sort(key=lambda bid: -score(bid))
-        candidates = candidates[:target_count]
+        llm_pick = None
+        if llm_selection.is_enabled():
+            pool = {bid: bullet_texts[bid] for bid in candidates if bid in bullet_texts}
+            llm_pick = llm_selection.llm_select_bullets(jd_text or jd_lower, pool, target_count)
+        if llm_pick is not None:
+            candidates = llm_pick
+        else:
+            candidates.sort(key=lambda bid: -score(bid))
+            candidates = candidates[:target_count]
     elif len(candidates) < target_count:
         remaining = [bid for bid in bullet_texts if bid not in candidates]
         remaining.sort(key=lambda bid: -score(bid))
@@ -255,7 +270,7 @@ def assemble(
             )
             expr = BulletExpr(primary_ids=[])
             bullet_texts = own_bullet_texts
-        chosen_ids = select_bullets(expr, EXPERIENCE_BULLETS_PER_ENTRY, bullet_texts, jd_lower)
+        chosen_ids = select_bullets(expr, EXPERIENCE_BULLETS_PER_ENTRY, bullet_texts, jd_lower, jd_text)
         bullets = [Bullet(id=bid, text=bullet_texts[bid]) for bid in chosen_ids if bid in bullet_texts]
         experience_out.append(
             AssembledExperienceEntry(

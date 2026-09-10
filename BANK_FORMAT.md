@@ -181,10 +181,14 @@ Rules:
     relevance to the JD is used.
   - `ID1·ID2·ID3 (or ID4)` — a single alternative for the last slot; swapped
     in only if it scores higher against the JD than the slot it'd replace.
-  - `ID1·ID2·ID3 (+ID4 as a fourth)` / `(+ID4 if a fourth fits)` — noted but
-    not used; the assembler's experience shape is a fixed 3 bullets (see
-    §5), so a 4th candidate has nowhere to go unless you change that
-    constant in code.
+  - `ID1·ID2·ID3 (+ID4 as a fourth)` / `(+ID4 if a fourth fits)` — `ID4`
+    joins the primary IDs as a real, selectable candidate (the experience
+    shape stays a fixed 3 bullets, per §5 — this doesn't add a 4th slot, it
+    adds a 4th *option* for the existing 3 slots). Which of the 4 candidates
+    fills the 3 slots is decided the same way any other over-sized candidate
+    pool is: by relevance score, or — if `LLM_BULLET_SELECTION=true` — by
+    the configured chat model reading the JD and the candidate bullets
+    directly. See the README's "LLM-assisted bullet selection."
   - If an entity is named in `**Experience**` but has no matching
     `**<Alias>**` field at all, the API doesn't fail — it falls back to that
     entity's most JD-relevant bullets and adds a warning to the response

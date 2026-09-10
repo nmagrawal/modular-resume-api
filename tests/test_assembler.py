@@ -43,6 +43,55 @@ def test_parse_bonus():
     assert expr.bonus_id == "OG25"
 
 
+def test_bonus_candidate_is_actually_selectable_by_scoring():
+    """A documented bonus must be a real candidate, not a note that gets
+    parsed and then ignored — if it scores better than a primary bullet, it
+    should win the trim, same as any other candidate."""
+    expr = BulletExpr(primary_ids=["A", "B", "C"], bonus_id="D")
+    texts = {
+        "A": "totally unrelated filler content",
+        "B": "totally unrelated filler content",
+        "C": "kubernetes docker mildly related",
+        "D": "kubernetes docker terraform extremely strongly related",
+    }
+    result = select_bullets(expr, target_count=3, bullet_texts=texts, jd_lower="kubernetes docker terraform")
+    assert "D" in result
+    assert len(result) == 3
+
+
+def test_llm_selection_used_when_enabled(monkeypatch):
+    """With LLM_BULLET_SELECTION on, a >target_count candidate pool should
+    go through llm_selection rather than straight to scoring."""
+    from app import llm_selection
+
+    monkeypatch.setenv("LLM_BULLET_SELECTION", "true")
+    monkeypatch.setattr(llm_selection, "llm_select_bullets", lambda jd, pool, n: ["A", "D"])
+
+    expr = BulletExpr(primary_ids=["A", "B", "C"], bonus_id="D")
+    texts = {"A": "x", "B": "x", "C": "x", "D": "x"}
+    result = select_bullets(expr, target_count=2, bullet_texts=texts, jd_lower="jd", jd_text="JD")
+    assert result == ["A", "D"]
+
+
+def test_llm_selection_falls_back_to_scoring_when_untrustworthy(monkeypatch):
+    """If the LLM path returns None (unconfigured, call failed, or its
+    answer didn't validate), selection must fall back to scoring — never
+    crash, never silently drop below target_count."""
+    from app import llm_selection
+
+    monkeypatch.setenv("LLM_BULLET_SELECTION", "true")
+    monkeypatch.setattr(llm_selection, "llm_select_bullets", lambda jd, pool, n: None)
+
+    expr = BulletExpr(primary_ids=["A", "B", "C"], bonus_id="D")
+    texts = {
+        "A": "kubernetes docker strongly related",
+        "B": "unrelated", "C": "unrelated", "D": "unrelated",
+    }
+    result = select_bullets(expr, target_count=3, bullet_texts=texts, jd_lower="kubernetes docker", jd_text="JD")
+    assert len(result) == 3
+    assert "A" in result
+
+
 def test_swap_forces_inclusion_even_if_low_scoring():
     """A forced swap must survive relevance-based trimming — it's a hard
     rule ("swap X in when Y appears"), not a vote among candidates."""
