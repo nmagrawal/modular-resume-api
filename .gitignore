@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+.env
+app/output/*.md
+.pytest_cache/
+*.egg-info/
+
+# Personal resume bank — never gets committed; keep a real one locally and
+# point RESUME_BANK_PATH at it. The repo ships example-resume-bank.md instead.
+2-FINAL-MODULAR-RESUME-BANK.md

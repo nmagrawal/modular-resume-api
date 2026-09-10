@@ -1,0 +1,20 @@
+# Phase 3 — activates POST /generate-resume/ai and EMBEDDINGS_PROVIDER-based
+# semantic search. Not needed for the deterministic /generate-resume endpoint.
+-r requirements.txt
+
+# CrewAI orchestration for the summary-writing layer (llm_config.py routes
+# ANY provider — OpenAI, Anthropic, a local Ollama model, Groq, etc. — through
+# CrewAI's own LiteLLM-backed LLM class via a model string, no extra package
+# needed per-provider here).
+crewai>=1.10
+
+# LangChain — used specifically for the embeddings/semantic-search layer
+# (semantic_search.py). Install only the provider(s) you'll actually use:
+langchain-core>=0.3
+langchain-openai>=0.2       # EMBEDDINGS_PROVIDER=openai
+langchain-ollama>=0.2       # EMBEDDINGS_PROVIDER=ollama (needs `ollama serve` with an embedding model pulled)
+
+# EMBEDDINGS_PROVIDER=huggingface (fully local, no API key, no running server)
+# needs these two additionally — they pull in torch (~1GB), so they're not
+# in the default install:
+#   pip install langchain-huggingface sentence-transformers
