@@ -209,3 +209,24 @@ def test_education_generic_across_banks(mini_bank):
     result = assemble(mini_bank, "Backend engineer, Go, Kubernetes")
     assert "B.S. Computer Science" in result.markdown
     assert "Jordan Rivera" not in result.markdown
+
+
+def test_zero_confidence_classification_is_flagged(example_bank):
+    """A JD entirely outside the bank's domain still has to resolve to some
+    role preset (there's no 'no match' response shape), but silently
+    defaulting to the first-listed preset at zero score is misleading —
+    must be flagged as a real warning, not returned as if it were a match."""
+    jd = "Seeking a marketing coordinator to run social media and email campaigns."
+    result = assemble(example_bank, jd)
+    top = result.role_scores[0]
+    assert top.score == 0
+    assert any("zero confidence" in w for w in result.warnings)
+
+
+def test_explicit_role_hint_never_warns_about_confidence(example_bank):
+    """An explicit role_hint is a deliberate choice, not an auto-classification
+    guess — it must never trigger the zero-confidence warning, even for a
+    JD with no keyword overlap at all."""
+    jd = "Seeking a marketing coordinator to run social media and email campaigns."
+    result = assemble(example_bank, jd, role_hint="Backend Engineer")
+    assert not any("zero confidence" in w for w in result.warnings)

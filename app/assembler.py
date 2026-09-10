@@ -232,6 +232,15 @@ def assemble(
     jd_lower = jd_text.lower()
     warnings: list[str] = []
 
+    top = role_scores[0]
+    if role_hint is None and top.score == 0 and top.semantic_score == 0:
+        warnings.append(
+            f"No keyword or semantic match found for any role preset — defaulted to "
+            f"'{role}' (the first-listed preset) with zero confidence, not a real match. "
+            f"This JD may be outside the bank's domain; consider passing an explicit "
+            f"role_hint instead of trusting this pick."
+        )
+
     modules_out: list[AssembledModule] = []
     for mid in preset.modules:
         mod = bank.modules.get(mid)
