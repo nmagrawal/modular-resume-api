@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.assembler import assemble
 from app.models import (
@@ -27,6 +30,20 @@ app = FastAPI(
         "skill modules / experience bullets / project bank — per LAYER 3/4 rules."
     ),
     version="0.1.0",
+)
+
+# CORS_ORIGINS: comma-separated allowed origins for the frontend (e.g. the
+# Next.js dev server). Defaults to the two common local dev ports so the
+# bundled frontend works out of the box.
+_default_origins = "http://localhost:3000,http://127.0.0.1:3000"
+_cors_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", _default_origins).split(",") if o.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 
@@ -133,6 +150,7 @@ def _build_response(result, save_to_file: bool) -> GenerateResumeResponse:
             )
             for p in result.projects
         ],
+        education=result.education,
         education_above_experience=result.education_above_experience,
         resume_markdown=result.markdown,
         warnings=result.warnings,

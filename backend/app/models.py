@@ -63,6 +63,7 @@ class GenerateResumeResponse(BaseModel):
     modules: list[ModuleOut]
     experience: list[ExperienceEntryOut]
     projects: list[ProjectEntryOut]
+    education: list[str]
     education_above_experience: bool
     resume_markdown: str
     warnings: list[str]

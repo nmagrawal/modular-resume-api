@@ -188,7 +188,7 @@ Rules:
     fills the 3 slots is decided the same way any other over-sized candidate
     pool is: by relevance score, or — if `LLM_BULLET_SELECTION=true` — by
     the configured chat model reading the JD and the candidate bullets
-    directly. See the README's "LLM-assisted bullet selection."
+    directly. See docs/architecture.md's "LLM-assisted bullet selection."
   - If an entity is named in `**Experience**` but has no matching
     `**<Alias>**` field at all, the API doesn't fail — it falls back to that
     entity's most JD-relevant bullets and adds a warning to the response

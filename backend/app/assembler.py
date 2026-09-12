@@ -191,6 +191,7 @@ class AssembledResume:
     modules: list[AssembledModule]
     experience: list[AssembledExperienceEntry]
     projects: list[AssembledProjectEntry]
+    education: list[str]
     education_above_experience: bool
     contact: ContactInfo
     warnings: list[str] = field(default_factory=list)
@@ -210,15 +211,15 @@ DEGREE_KEYWORDS = (
 )
 
 
-def _education_block(bank: ResumeBank) -> str:
+def _education_rows(bank: ResumeBank) -> list[str]:
     rows = [
         f"{label} — {value}"
         for label, value in bank.facts.ledger_rows
         if any(kw in label.lower() for kw in DEGREE_KEYWORDS)
     ]
     if not rows:
-        return "- [[No degree row detected in the FACTS LEDGER table — add one, e.g. `| M.S. Foo | University · Years |`]]"
-    return "\n".join(f"- {r}" for r in rows)
+        return ["[[No degree row detected in the FACTS LEDGER table — add one, e.g. `| M.S. Foo | University · Years |`]]"]
+    return rows
 
 
 def assemble(
@@ -311,9 +312,10 @@ def assemble(
         projects_out.append(AssembledProjectEntry(project=proj, note=note))
 
     contact = ContactInfo(**{**{}, **(contact_overrides or {})})
+    education = _education_rows(bank)
 
-    markdown = render_markdown(bank, role, modules_out, experience_out, projects_out,
-                                preset.education_above_experience, contact)
+    markdown = render_markdown(role, modules_out, experience_out, projects_out,
+                                education, preset.education_above_experience, contact)
 
     banned_hits = [p for p in bank.facts.banned_phrases if p.lower() in markdown.lower()]
     if banned_hits:
@@ -325,6 +327,7 @@ def assemble(
         modules=modules_out,
         experience=experience_out,
         projects=projects_out,
+        education=education,
         education_above_experience=preset.education_above_experience,
         contact=contact,
         warnings=warnings,
@@ -333,11 +336,11 @@ def assemble(
 
 
 def render_markdown(
-    bank: ResumeBank,
     role: str,
     modules: list[AssembledModule],
     experience: list[AssembledExperienceEntry],
     projects: list[AssembledProjectEntry],
+    education: list[str],
     education_above_experience: bool,
     contact: ContactInfo,
 ) -> str:
@@ -371,7 +374,7 @@ def render_markdown(
         return out
 
     def education_section() -> list[str]:
-        return ["## Education", _education_block(bank), ""]
+        return ["## Education", *(f"- {r}" for r in education), ""]
 
     if education_above_experience:
         lines.extend(education_section())

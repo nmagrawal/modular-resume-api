@@ -1,11 +1,20 @@
+# Python (backend)
 venv/
 __pycache__/
 *.pyc
-.env
-app/output/*.md
+backend/.env
+backend/app/output/*.md
 .pytest_cache/
 *.egg-info/
 
+# Node (frontend)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+
+.env
+
 # Personal resume bank — never gets committed; keep a real one locally and
-# point RESUME_BANK_PATH at it. The repo ships example-resume-bank.md instead.
-2-FINAL-MODULAR-RESUME-BANK.md
+# point RESUME_BANK_PATH at it. The repo ships backend/example-resume-bank.md instead.
+backend/2-FINAL-MODULAR-RESUME-BANK.md
